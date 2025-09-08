@@ -21,8 +21,13 @@ $obj = new Djebel_Faq_Plugin();
 
 class Djebel_Faq_Plugin
 {
+    private $cache_dir;
+    private $current_collection_id;
+    
     public function __construct()
     {
+        $this->cache_dir = Dj_App_Util::getCorePrivateDataDir() . '/cache/plugins/djebel-faq';
+
         $shortcode_obj = Dj_App_Shortcode::getInstance();
         $shortcode_obj->addShortcode('djebel-faq', [ $this, 'renderFaq' ]);
     }
@@ -32,7 +37,12 @@ class Djebel_Faq_Plugin
         $title = empty($params['title']) ? 'Frequently Asked Questions' : trim($params['title']);
         $align = empty($params['align']) ? 'left' : trim($params['align']);
         $render_title = empty($params['render_title']) ? 0 : 1;
-        $faq_data = $this->getFaqData();
+        $has_custom_title = !empty($params['title']);
+        $faq_data = $this->getFaqData($params);
+        
+        if (empty($faq_data)) {
+            return '<!-- No FAQ data available -->';
+        }
         
         ?>
         <style>
@@ -156,9 +166,13 @@ class Djebel_Faq_Plugin
         </style>
         
         <div class="djebel-faq-container align-<?php echo Djebel_App_HTML::encodeEntities($align); ?>">
-            <?php if ($render_title) { ?>
+            <?php 
+            if ($has_custom_title || $render_title) { 
+            ?>
                 <h2 class="djebel-faq-title"><?php echo Djebel_App_HTML::encodeEntities($title); ?></h2>
-            <?php } ?>
+            <?php 
+            } 
+            ?>
             
             <div class="djebel-faq-list">
                 <?php foreach ($faq_data as $faq) { ?>
@@ -232,42 +246,53 @@ class Djebel_Faq_Plugin
         </script>
         <?php
     }
-    
-    private function getFaqData()
+
+    public function getFaqData($params = [])
     {
-        // Sample FAQ data - can be replaced with database or external data source
-        $faq_data = [
-            [
-                'title' => 'What is Djebel?',
-                'content' => '<p>Djebel is a modern web application framework designed for building scalable and maintainable web applications. It provides a clean architecture, powerful features, and excellent developer experience.</p>',
-                'id' => $this->generateId('What is Djebel?')
-            ],
-            [
-                'title' => 'How do I install Djebel?',
-                'content' => '<p>Installing Djebel is straightforward. Simply download the latest version from our website, extract the files to your web server directory, and follow the installation wizard. The process typically takes just a few minutes.</p>',
-                'id' => $this->generateId('How do I install Djebel?')
-            ],
-            [
-                'title' => 'Is Djebel free to use?',
-                'content' => '<p>Yes, Djebel is completely free and open-source. You can use it for personal projects, commercial applications, or any other purpose without any licensing fees or restrictions.</p>',
-                'id' => $this->generateId('Is Djebel free to use?')
-            ],
-            [
-                'title' => 'What programming languages does Djebel support?',
-                'content' => '<p>Djebel primarily supports PHP for backend development, along with HTML, CSS, and JavaScript for frontend development. It also includes built-in support for popular templating engines and modern JavaScript frameworks.</p>',
-                'id' => $this->generateId('What programming languages does Djebel support?')
-            ],
-            [
-                'title' => 'How can I get support?',
-                'content' => '<p>We offer several support channels including our documentation website, community forums, GitHub issues, and direct email support. Our community is very active and helpful for both beginners and advanced users.</p>',
-                'id' => $this->generateId('How can I get support?')
-            ],
-            [
-                'title' => 'Can I contribute to Djebel development?',
-                'content' => '<p>Absolutely! Djebel is an open-source project and we welcome contributions from the community. You can contribute by reporting bugs, suggesting features, submitting pull requests, or helping with documentation.</p>',
-                'id' => $this->generateId('Can I contribute to Djebel development?')
-            ]
-        ];
+        $collection_id = empty($params['id']) ? 'default' : trim($params['id']);
+        $this->current_collection_id = Dj_App_String_Util::formatStringId($collection_id);
+        $cache_file = $this->getCacheFile($this->current_collection_id);
+        
+        // Check if cache exists and is valid (less than 8 hours old)
+        if ($this->isCacheValid($cache_file)) {
+            $cached_data = $this->loadFromCache($cache_file);
+            
+            if (!empty($cached_data)) {
+                return $cached_data;
+            }
+        }
+        
+        // Generate fresh data
+        $faq_data = $this->generateFaqData($params);
+        
+        // Save to cache
+        $this->saveToCache($cache_file, $faq_data);
+        
+        return $faq_data;
+    }
+    
+    private function generateFaqData($params = [])
+    {
+        $faq_data = [];
+        $data_dir = $this->getDataDirectory($params);
+        
+        if (!is_dir($data_dir)) {
+            // Return empty array if data directory doesn't exist
+            return [];
+        }
+        
+        $json_files = glob($data_dir . '/*.json');
+        
+        foreach ($json_files as $file) {
+            $faq_item = $this->loadFaqFromJson($file);
+            
+            if ($faq_item) {
+                $faq_data[] = $faq_item;
+            }
+        }
+        
+        // Sort by creation_date or sort_order
+        usort($faq_data, [ $this, 'sortFaqItems' ]);
         
         // Allow filtering of FAQ data
         $faq_data = Dj_App_Hooks::applyFilter('app.plugin.faq.data', $faq_data);
@@ -277,7 +302,206 @@ class Djebel_Faq_Plugin
     
     private function generateId($title)
     {
-        return substr(sha1($title), 0, 8);
+        $hash = sha1($title);
+        $id = substr($hash, 0, 10);
+        return $id;
+    }
+    
+    private function getDataDirectory($params = [])
+    {
+        $collection_id = empty($params['id']) ? 'default' : trim($params['id']);
+        $formatted_id = Dj_App_String_Util::formatStringId($collection_id);
+        $data_dir = Dj_App_Util::getCorePrivateDataDir() . '/data/plugins/djebel-faq/' . $formatted_id;
+        return $data_dir;
+    }
+    
+    private function getCurrentCollectionId()
+    {
+        $collection_id = empty($this->current_collection_id) ? 'default' : $this->current_collection_id;
+        return $collection_id;
+    }
+    
+    private function loadFaqFromJson($file)
+    {
+        if (!file_exists($file)) {
+            $result = null;
+            return $result;
+        }
+        
+        $json_content = Dj_App_File_Util::read($file);
+        
+        if (empty($json_content)) {
+            $result = null;
+            return $result;
+        }
+        
+        $data = Dj_App_String_Util::jsonDecode($json_content);
+        
+        if (empty($data)) {
+            $result = null;
+            return $result;
+        }
+        
+        if (empty($data['meta']) || empty($data['data'])) {
+            $result = null;
+            return $result;
+        }
+        
+        $meta = $data['meta'];
+        $faq_data = $data['data'];
+        
+        // Only return active FAQs
+        if (empty($meta['status']) || $meta['status'] !== 'active') {
+            $result = null;
+            return $result;
+        }
+        
+        $result = [
+            'id' => $meta['id'],
+            'title' => $meta['title'],
+            'content' => $faq_data['content'],
+            'creation_date' => $meta['creation_date'],
+            'sort_order' => isset($meta['sort_order']) ? $meta['sort_order'] : 0,
+            'category' => isset($meta['category']) ? $meta['category'] : 'general',
+            'tags' => isset($faq_data['tags']) ? $faq_data['tags'] : [],
+            'related_faqs' => isset($faq_data['related_faqs']) ? $faq_data['related_faqs'] : [],
+        ];
+        
+        return $result;
+    }
+    
+    private function sortFaqItems($a, $b)
+    {
+        // First sort by sort_order if available
+        if (isset($a['sort_order']) && isset($b['sort_order'])) {
+            if ($a['sort_order'] != $b['sort_order']) {
+                return $a['sort_order'] - $b['sort_order'];
+            }
+        }
+        
+        // Then sort by creation_date
+        if (isset($a['creation_date']) && isset($b['creation_date'])) {
+            return strtotime($a['creation_date']) - strtotime($b['creation_date']);
+        }
+        
+        // Finally sort by title (case-insensitive)
+        return strcasecmp($a['title'], $b['title']);
+    }
+    
+    
+    private function getCacheFile($collection_id)
+    {
+        // Ensure cache directory exists
+        if (!is_dir($this->cache_dir)) {
+            Dj_App_File_Util::mkdir($this->cache_dir);
+        }
+        
+        return $this->cache_dir . '/' . $collection_id . '.json';
+    }
+    
+    private function isCacheValid($cache_file)
+    {
+        if (!file_exists($cache_file)) {
+            return false;
+        }
+        
+        $file_time = filemtime($cache_file);
+        $current_time = time();
+        $cache_age = $current_time - $file_time;
+        
+        // Cache is valid for 8 hours (28800 seconds)
+        return $cache_age < 28800;
+    }
+    
+    /**
+     * Load FAQ data from cache file
+     * @param string $cache_file Path to cache file
+     * @return array|null FAQ data array or null if cache invalid
+     */
+    private function loadFromCache($cache_file)
+    {
+        if (!file_exists($cache_file)) {
+            $result = null;
+            return $result;
+        }
+        
+        $cache_content = Dj_App_File_Util::read($cache_file);
+        
+        if (empty($cache_content)) {
+            $result = null;
+            return $result;
+        }
+        
+        $cached_data = Dj_App_String_Util::jsonDecode($cache_content);
+        
+        if (empty($cached_data)) {
+            $result = null;
+            return $result;
+        }
+        
+        // Return the data field from the cache structure
+        $result = isset($cached_data['data']) ? $cached_data['data'] : null;
+        return $result;
+    }
+    
+    /**
+     * Save FAQ data to cache file with meta information
+     * @param string $cache_file Path to cache file
+     * @param array $faq_data FAQ data array to cache
+     * @return bool True if saved successfully, false otherwise
+     */
+    private function saveToCache($cache_file, $faq_data)
+    {
+        $cache_data = [
+            'meta' => [
+                'created_at' => date('Y-m-d H:i:s'),
+                'collection_id' => $this->getCurrentCollectionId(),
+                'total_items' => count($faq_data),
+                'cache_version' => '1.0',
+            ],
+            'data' => $faq_data,
+        ];
+        
+        $cache_content = json_encode($cache_data, JSON_PRETTY_PRINT);
+        
+        if (empty($cache_content)) {
+            $result = false;
+            return $result;
+        }
+        
+        $result = Dj_App_File_Util::write($cache_file, $cache_content);
+
+        return $result;
+    }
+    
+    public function clearCache($collection_id = 'default')
+    {
+        $formatted_id = Dj_App_String_Util::formatStringId($collection_id);
+        $cache_file = $this->getCacheFile($formatted_id);
+        
+        if (file_exists($cache_file)) {
+            unlink($cache_file);
+        }
+        
+        return true;
+    }
+    
+    public function clearAllCache()
+    {
+        if (!is_dir($this->cache_dir)) {
+            return true;
+        }
+        
+        $cache_files = glob($this->cache_dir . '/*.json');
+        $success = true;
+        
+        foreach ($cache_files as $file) {
+            if (!unlink($file)) {
+                $success = false;
+            }
+        }
+        
+        return $success;
     }
     
     private function sanitizeContent($content)
