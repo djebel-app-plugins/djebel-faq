@@ -250,7 +250,7 @@ class Djebel_Faq_Plugin
     public function getFaqData($params = [])
     {
         $collection_id = empty($params['id']) ? 'default' : trim($params['id']);
-        $this->current_collection_id = Dj_App_String_Util::formatStringId($collection_id);
+        $this->current_collection_id = Dj_App_String_Util::formatSlug($collection_id);
         $cache_file = $this->getCacheFile($this->current_collection_id);
         
         // Check if cache exists and is valid (less than 8 hours old)
@@ -310,7 +310,7 @@ class Djebel_Faq_Plugin
     private function getDataDirectory($params = [])
     {
         $collection_id = empty($params['id']) ? 'default' : trim($params['id']);
-        $formatted_id = Dj_App_String_Util::formatStringId($collection_id);
+        $formatted_id = Dj_App_String_Util::formatSlug($collection_id);
         $data_dir = Dj_App_Util::getCorePrivateDataDir(['plugin' => 'djebel-faq']) . '/' . $formatted_id;
         return $data_dir;
     }
@@ -476,7 +476,7 @@ class Djebel_Faq_Plugin
     
     public function clearCache($collection_id = 'default')
     {
-        $formatted_id = Dj_App_String_Util::formatStringId($collection_id);
+        $formatted_id = Dj_App_String_Util::formatSlug($collection_id);
         $cache_file = $this->getCacheFile($formatted_id);
         
         if (file_exists($cache_file)) {
