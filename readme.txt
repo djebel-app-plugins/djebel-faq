@@ -35,11 +35,29 @@ A minimalistic and user-friendly FAQ plugin for Djebel applications. Features co
 [djebel-faq title="Help & Support"]
 ```
 
+### Shortcode with Alignment
+
+```
+[djebel-faq align="center"]
+[djebel-faq align="right"]
+[djebel-faq title="FAQ" align="center"]
+```
+
+### Shortcode with Title Control
+
+```
+[djebel-faq render_title="1"]
+[djebel-faq title="Custom FAQ" render_title="1"]
+[djebel-faq title="Help Center" render_title="1" align="center"]
+```
+
 ## Shortcode Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `title` | string | `"Frequently Asked Questions"` | Custom title for the FAQ section |
+| `align` | string | `"left"` | Alignment of the FAQ container (left, center, right) |
+| `render_title` | boolean | `0` | Whether to display the FAQ title (0 = hidden, 1 = visible) |
 
 ### Parameter Examples
 
@@ -56,6 +74,31 @@ A minimalistic and user-friendly FAQ plugin for Djebel applications. Features co
 **Help section:**
 ```
 [djebel-faq title="Need Help?"]
+```
+
+**Center-aligned FAQ:**
+```
+[djebel-faq align="center"]
+```
+
+**Right-aligned FAQ with custom title:**
+```
+[djebel-faq title="Product Support" align="right"]
+```
+
+**FAQ with title displayed:**
+```
+[djebel-faq render_title="1"]
+```
+
+**Custom title with alignment and display:**
+```
+[djebel-faq title="Help Center" render_title="1" align="center"]
+```
+
+**Clean FAQ without title (default):**
+```
+[djebel-faq]
 ```
 
 ## FAQ Data Structure

@@ -30,6 +30,8 @@ class Djebel_Faq_Plugin
     public function renderFaq($params = [])
     {
         $title = empty($params['title']) ? 'Frequently Asked Questions' : trim($params['title']);
+        $align = empty($params['align']) ? 'left' : trim($params['align']);
+        $render_title = empty($params['render_title']) ? 0 : 1;
         $faq_data = $this->getFaqData();
         
         ?>
@@ -38,6 +40,21 @@ class Djebel_Faq_Plugin
             max-width: 800px;
             margin: 0 auto;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .djebel-faq-container.align-left {
+            margin-left: 0;
+            margin-right: auto;
+        }
+        
+        .djebel-faq-container.align-right {
+            margin-left: auto;
+            margin-right: 0;
+        }
+        
+        .djebel-faq-container.align-center {
+            margin-left: auto;
+            margin-right: auto;
         }
         
         .djebel-faq-title {
@@ -138,8 +155,10 @@ class Djebel_Faq_Plugin
         }
         </style>
         
-        <div class="djebel-faq-container">
-            <h2 class="djebel-faq-title"><?php echo Djebel_App_HTML::encodeEntities($title); ?></h2>
+        <div class="djebel-faq-container align-<?php echo Djebel_App_HTML::encodeEntities($align); ?>">
+            <?php if ($render_title) { ?>
+                <h2 class="djebel-faq-title"><?php echo Djebel_App_HTML::encodeEntities($title); ?></h2>
+            <?php } ?>
             
             <div class="djebel-faq-list">
                 <?php foreach ($faq_data as $faq) { ?>
@@ -150,7 +169,7 @@ class Djebel_Faq_Plugin
                         </button>
                         <div class="djebel-faq-answer">
                             <div class="djebel-faq-answer-content">
-                                <?php echo $faq['content']; ?>
+                                <?php echo $this->sanitizeContent($faq['content']); ?>
                             </div>
                         </div>
                     </div>
@@ -159,35 +178,57 @@ class Djebel_Faq_Plugin
         </div>
         
         <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const faqItems = document.querySelectorAll('.djebel-faq-item');
+        (function() {
+            'use strict';
             
-            faqItems.forEach(function(item) {
-                const question = item.querySelector('.djebel-faq-question');
-                const answer = item.querySelector('.djebel-faq-answer');
+            function initFaq() {
+                const faqItems = document.querySelectorAll('.djebel-faq-item');
                 
-                question.addEventListener('click', function() {
-                    const isActive = item.classList.contains('active');
+                if (faqItems.length === 0) {
+                    return;
+                }
+                
+                faqItems.forEach(function(item) {
+                    const question = item.querySelector('.djebel-faq-question');
+                    const answer = item.querySelector('.djebel-faq-answer');
                     
-                    // Close all other items
-                    faqItems.forEach(function(otherItem) {
-                        if (otherItem !== item) {
-                            otherItem.classList.remove('active');
-                            otherItem.querySelector('.djebel-faq-question').setAttribute('aria-expanded', 'false');
+                    if (!question || !answer) {
+                        return;
+                    }
+                    
+                    question.addEventListener('click', function() {
+                        const isActive = item.classList.contains('active');
+                        
+                        // Close all other items
+                        faqItems.forEach(function(otherItem) {
+                            if (otherItem !== item) {
+                                otherItem.classList.remove('active');
+                                const otherQuestion = otherItem.querySelector('.djebel-faq-question');
+                                if (otherQuestion) {
+                                    otherQuestion.setAttribute('aria-expanded', 'false');
+                                }
+                            }
+                        });
+                        
+                        // Toggle current item
+                        if (isActive) {
+                            item.classList.remove('active');
+                            question.setAttribute('aria-expanded', 'false');
+                        } else {
+                            item.classList.add('active');
+                            question.setAttribute('aria-expanded', 'true');
                         }
                     });
-                    
-                    // Toggle current item
-                    if (isActive) {
-                        item.classList.remove('active');
-                        question.setAttribute('aria-expanded', 'false');
-                    } else {
-                        item.classList.add('active');
-                        question.setAttribute('aria-expanded', 'true');
-                    }
                 });
-            });
-        });
+            }
+            
+            // Initialize when DOM is ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initFaq);
+            } else {
+                initFaq();
+            }
+        })();
         </script>
         <?php
     }
@@ -237,5 +278,21 @@ class Djebel_Faq_Plugin
     private function generateId($title)
     {
         return substr(sha1($title), 0, 8);
+    }
+    
+    private function sanitizeContent($content)
+    {
+        // Allow safe HTML tags for FAQ content
+        $allowed_tags = '<p><br><strong><em><u><ul><ol><li><a><h1><h2><h3><h4><h5><h6><blockquote><code><pre>';
+        
+        // Strip potentially dangerous tags and attributes
+        $content = strip_tags($content, $allowed_tags);
+        
+        // Additional security: remove any javascript: or data: attributes
+        $content = preg_replace('/\s*on\w+\s*=\s*["\'][^"\']*["\']/', '', $content);
+        $content = preg_replace('/\s*javascript\s*:/i', '', $content);
+        $content = preg_replace('/\s*data\s*:/i', '', $content);
+        
+        return $content;
     }
 }
