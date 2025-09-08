@@ -51,13 +51,22 @@ A minimalistic and user-friendly FAQ plugin for Djebel applications. Features co
 [djebel-faq title="Help Center" render_title="1" align="center"]
 ```
 
+### Shortcode with Different Collections
+
+```
+[djebel-faq id="technical"]
+[djebel-faq id="support" title="Support FAQ"]
+[djebel-faq id="general" align="center"]
+```
+
 ## Shortcode Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `title` | string | `"Frequently Asked Questions"` | Custom title for the FAQ section |
+| `title` | string | `"Frequently Asked Questions"` | Custom title for the FAQ section (always renders when provided) |
 | `align` | string | `"left"` | Alignment of the FAQ container (left, center, right) |
-| `render_title` | boolean | `0` | Whether to display the FAQ title (0 = hidden, 1 = visible) |
+| `render_title` | boolean | `0` | Whether to display the default title (0 = hidden, 1 = visible) |
+| `id` | string | `"default"` | FAQ collection ID to load from data directory |
 
 ### Parameter Examples
 
@@ -86,19 +95,24 @@ A minimalistic and user-friendly FAQ plugin for Djebel applications. Features co
 [djebel-faq title="Product Support" align="right"]
 ```
 
-**FAQ with title displayed:**
+**FAQ with default title displayed:**
 ```
 [djebel-faq render_title="1"]
 ```
 
-**Custom title with alignment and display:**
+**Custom title (always shows when provided):**
 ```
-[djebel-faq title="Help Center" render_title="1" align="center"]
+[djebel-faq title="Help Center" align="center"]
 ```
 
 **Clean FAQ without title (default):**
 ```
 [djebel-faq]
+```
+
+**Different collection with custom title:**
+```
+[djebel-faq id="technical" title="Technical Support"]
 ```
 
 ## FAQ Data Structure
