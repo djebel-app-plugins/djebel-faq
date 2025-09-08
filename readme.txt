@@ -57,6 +57,8 @@ A minimalistic and user-friendly FAQ plugin for Djebel applications. Features co
 [djebel-faq id="technical"]
 [djebel-faq id="support" title="Support FAQ"]
 [djebel-faq id="general" align="center"]
+[djebel-faq id="billing" title="Billing Questions" align="center"]
+[djebel-faq id="api" title="API Documentation" render_title="1"]
 ```
 
 ## Shortcode Parameters
@@ -113,6 +115,15 @@ A minimalistic and user-friendly FAQ plugin for Djebel applications. Features co
 **Different collection with custom title:**
 ```
 [djebel-faq id="technical" title="Technical Support"]
+```
+
+**More Collection Examples:**
+```
+[djebel-faq id="support" title="Customer Support" align="center"]
+[djebel-faq id="billing" title="Billing Questions"]
+[djebel-faq id="api" title="API Documentation" render_title="1"]
+[djebel-faq id="features" align="right"]
+[djebel-faq id="troubleshooting" title="Troubleshooting Guide"]
 ```
 
 ## FAQ Data Structure
@@ -197,6 +208,28 @@ function replace_faq_data($faq_data) {
 
 Dj_App_Hooks::addFilter('app.plugin.faq.data', 'replace_faq_data');
 ```
+
+## Creating Different FAQ Collections
+
+To create different FAQ collections, create subdirectories in the data folder:
+
+```
+.ht_djebel/data/plugins/djebel-faq/
+├── default/           # Default collection (id="default")
+│   ├── 001-general.json
+│   └── 002-installation.json
+├── technical/         # Technical collection (id="technical")
+│   ├── 001-api.json
+│   └── 002-debugging.json
+├── support/           # Support collection (id="support")
+│   ├── 001-account.json
+│   └── 002-billing.json
+└── billing/           # Billing collection (id="billing")
+    ├── 001-payments.json
+    └── 002-refunds.json
+```
+
+Each collection directory should contain JSON files with FAQ data. The collection ID in the shortcode corresponds to the directory name.
 
 ## Design Features
 
