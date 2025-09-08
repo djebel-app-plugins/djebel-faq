@@ -26,7 +26,7 @@ class Djebel_Faq_Plugin
     
     public function __construct()
     {
-        $this->cache_dir = Dj_App_Util::getCorePrivateDataDir() . '/cache/plugins/djebel-faq';
+        $this->cache_dir = Dj_App_Util::getCoreCacheDir(['plugin' => 'djebel-faq']);
 
         $shortcode_obj = Dj_App_Shortcode::getInstance();
         $shortcode_obj->addShortcode('djebel-faq', [ $this, 'renderFaq' ]);
@@ -311,7 +311,7 @@ class Djebel_Faq_Plugin
     {
         $collection_id = empty($params['id']) ? 'default' : trim($params['id']);
         $formatted_id = Dj_App_String_Util::formatStringId($collection_id);
-        $data_dir = Dj_App_Util::getCorePrivateDataDir() . '/data/plugins/djebel-faq/' . $formatted_id;
+        $data_dir = Dj_App_Util::getCorePrivateDataDir(['plugin' => 'djebel-faq']) . '/' . $formatted_id;
         return $data_dir;
     }
     
