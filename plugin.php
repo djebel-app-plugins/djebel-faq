@@ -451,6 +451,8 @@ class Djebel_Faq_Plugin
      */
     private function saveToCache($cache_file, $faq_data)
     {
+        $res_obj = new Dj_App_Result();
+
         $cache_data = [
             'meta' => [
                 'created_at' => date('Y-m-d H:i:s'),
@@ -464,8 +466,8 @@ class Djebel_Faq_Plugin
         $cache_content = json_encode($cache_data, JSON_PRETTY_PRINT);
         
         if (empty($cache_content)) {
-            $result = false;
-            return $result;
+            $res_obj->msg = "Can't encode data";
+            return $res_obj;
         }
         
         $result = Dj_App_File_Util::write($cache_file, $cache_content);
