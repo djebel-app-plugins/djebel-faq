@@ -502,19 +502,19 @@ class Djebel_Faq_Plugin
         }
         
         $cache_content = Dj_App_File_Util::read($cache_file);
-        
+
         if (empty($cache_content)) {
             $result = null;
             return $result;
         }
-        
-        $cached_data = Dj_App_String_Util::jsonDecode($cache_content);
-        
-        if (empty($cached_data)) {
+
+        $cached_data = @unserialize($cache_content);
+
+        if ($cached_data === false) {
             $result = null;
             return $result;
         }
-        
+
         // Return the data field from the cache structure
         $result = isset($cached_data['data']) ? $cached_data['data'] : null;
         return $result;
@@ -539,11 +539,11 @@ class Djebel_Faq_Plugin
             ],
             'data' => $faq_data,
         ];
-        
-        $cache_content = json_encode($cache_data, JSON_PRETTY_PRINT);
-        
-        if (empty($cache_content)) {
-            $res_obj->msg = "Can't encode data";
+
+        $cache_content = serialize($cache_data);
+
+        if ($cache_content === false) {
+            $res_obj->msg = "Can't serialize data";
             return $res_obj;
         }
         
