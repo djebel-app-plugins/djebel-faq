@@ -278,7 +278,6 @@ class Djebel_Faq_Plugin
         $data_dir = $this->getDataDirectory($params);
 
         if (!is_dir($data_dir)) {
-            // Return empty array if data directory doesn't exist
             return [];
         }
 
@@ -293,14 +292,17 @@ class Djebel_Faq_Plugin
             }
         }
 
-        // Scan for JSON files (backward compatibility)
-        $json_files = glob($data_dir . '/*.json');
+        $scan_for_json_files = Dj_App_Hooks::applyFilter('app.plugin.faq.scan_for_json', false);
 
-        foreach ($json_files as $file) {
-            $faq_item = $this->loadFaqFromJson($file);
+        if ($scan_for_json_files) { // Scan for JSON files (backward compatibility)
+            $json_files = glob($data_dir . '/*.json');
 
-            if ($faq_item) {
-                $faq_data[] = $faq_item;
+            foreach ($json_files as $file) {
+                $faq_item = $this->loadFaqFromJson($file);
+
+                if ($faq_item) {
+                    $faq_data[] = $faq_item;
+                }
             }
         }
 
