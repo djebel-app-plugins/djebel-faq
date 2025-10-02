@@ -275,28 +275,40 @@ class Djebel_Faq_Plugin
     {
         $faq_data = [];
         $data_dir = $this->getDataDirectory($params);
-        
+
         if (!is_dir($data_dir)) {
             // Return empty array if data directory doesn't exist
             return [];
         }
-        
-        $json_files = glob($data_dir . '/*.json');
-        
-        foreach ($json_files as $file) {
-            $faq_item = $this->loadFaqFromJson($file);
-            
+
+        // Scan for markdown files
+        $md_files = glob($data_dir . '/*.md');
+
+        foreach ($md_files as $file) {
+            $faq_item = $this->loadFaqFromMarkdown($file);
+
             if ($faq_item) {
                 $faq_data[] = $faq_item;
             }
         }
-        
+
+        // Scan for JSON files (backward compatibility)
+        $json_files = glob($data_dir . '/*.json');
+
+        foreach ($json_files as $file) {
+            $faq_item = $this->loadFaqFromJson($file);
+
+            if ($faq_item) {
+                $faq_data[] = $faq_item;
+            }
+        }
+
         // Sort by creation_date or sort_order
         usort($faq_data, [ $this, 'sortFaqItems' ]);
-        
+
         // Allow filtering of FAQ data
         $faq_data = Dj_App_Hooks::applyFilter('app.plugin.faq.data', $faq_data);
-        
+
         return $faq_data;
     }
     
@@ -327,35 +339,35 @@ class Djebel_Faq_Plugin
             $result = null;
             return $result;
         }
-        
+
         $json_content = Dj_App_File_Util::read($file);
-        
+
         if (empty($json_content)) {
             $result = null;
             return $result;
         }
-        
+
         $data = Dj_App_String_Util::jsonDecode($json_content);
-        
+
         if (empty($data)) {
             $result = null;
             return $result;
         }
-        
+
         if (empty($data['meta']) || empty($data['data'])) {
             $result = null;
             return $result;
         }
-        
+
         $meta = $data['meta'];
         $faq_data = $data['data'];
-        
+
         // Only return active FAQs
         if (empty($meta['status']) || $meta['status'] !== 'active') {
             $result = null;
             return $result;
         }
-        
+
         $result = [
             'id' => $meta['id'],
             'title' => $meta['title'],
@@ -366,7 +378,72 @@ class Djebel_Faq_Plugin
             'tags' => isset($faq_data['tags']) ? $faq_data['tags'] : [],
             'related_faqs' => isset($faq_data['related_faqs']) ? $faq_data['related_faqs'] : [],
         ];
-        
+
+        return $result;
+    }
+
+    /**
+     * Loads FAQ data from a Markdown file with frontmatter.
+     *
+     * @param string $file Path to .md file
+     * @return array|null FAQ data array or null if invalid
+     */
+    private function loadFaqFromMarkdown($file)
+    {
+        if (!file_exists($file)) {
+            $result = null;
+            return $result;
+        }
+
+        // Read entire file
+        $file_content = Dj_App_File_Util::read($file);
+
+        if (empty($file_content)) {
+            $result = null;
+            return $result;
+        }
+
+        // Parse frontmatter via markdown plugin
+        $ctx = ['file' => $file];
+        $meta = Dj_App_Hooks::applyFilter('app.plugins.markdown.parse_markdown_front_matter', $file_content, $ctx);
+
+        if (empty($meta)) {
+            $result = null;
+            return $result;
+        }
+
+        // Only return active FAQs (default to active if not specified)
+        $status = isset($meta['status']) ? $meta['status'] : 'active';
+
+        if ($status !== 'active') {
+            $result = null;
+            return $result;
+        }
+
+        // Convert markdown to HTML via hook
+        $ctx = [
+            'source' => 'djebel-faq',
+            'file' => $file,
+        ];
+
+        $html_content = Dj_App_Hooks::applyFilter('app.plugins.markdown.parse_markdown', $file_content, $ctx);
+
+        // Fallback to raw content if no markdown processor registered
+        if (empty($html_content)) {
+            $html_content = $file_content;
+        }
+
+        $result = [
+            'id' => isset($meta['id']) ? $meta['id'] : '',
+            'title' => isset($meta['title']) ? $meta['title'] : '',
+            'content' => $html_content,
+            'creation_date' => isset($meta['creation_date']) ? $meta['creation_date'] : '',
+            'sort_order' => isset($meta['sort_order']) ? (int)$meta['sort_order'] : 0,
+            'category' => isset($meta['category']) ? $meta['category'] : 'general',
+            'tags' => isset($meta['tags']) ? (array) $meta['tags'] : [],
+            'related_faqs' => isset($meta['related_faqs']) ? (array) $meta['related_faqs'] : [],
+        ];
+
         return $result;
     }
     
@@ -492,10 +569,10 @@ class Djebel_Faq_Plugin
         if (!is_dir($this->cache_dir)) {
             return true;
         }
-        
-        $cache_files = glob($this->cache_dir . '/*.json');
+
         $success = true;
-        
+        $cache_files = glob($this->cache_dir . '/*.json');
+
         foreach ($cache_files as $file) {
             if (!unlink($file)) {
                 $success = false;
@@ -509,15 +586,55 @@ class Djebel_Faq_Plugin
     {
         // Allow safe HTML tags for FAQ content
         $allowed_tags = '<p><br><strong><em><u><ul><ol><li><a><h1><h2><h3><h4><h5><h6><blockquote><code><pre>';
-        
+
         // Strip potentially dangerous tags and attributes
         $content = strip_tags($content, $allowed_tags);
-        
+
         // Additional security: remove any javascript: or data: attributes
         $content = preg_replace('/\s*on\w+\s*=\s*["\'][^"\']*["\']/', '', $content);
         $content = preg_replace('/\s*javascript\s*:/i', '', $content);
         $content = preg_replace('/\s*data\s*:/i', '', $content);
-        
+
         return $content;
+    }
+
+    /**
+     * Parses array value from string format: [item1, item2, item3]
+     *
+     * @param string $value String value that might be an array
+     * @return array Parsed array or single value wrapped in array
+     */
+    private function parseArrayValue($value)
+    {
+        if (empty($value)) {
+            return [];
+        }
+
+        // Already an array
+        if (is_array($value)) {
+            return $value;
+        }
+
+        // Check for array notation: [item1, item2, item3]
+        $value = trim($value);
+
+        if ($value[0] === '[' && substr($value, -1) === ']') {
+            $array_content = substr($value, 1, -1);
+            $items = explode(',', $array_content);
+            $parsed_items = [];
+
+            foreach ($items as $item) {
+                $item = trim($item);
+
+                if (!empty($item)) {
+                    $parsed_items[] = $item;
+                }
+            }
+
+            return $parsed_items;
+        }
+
+        // Single value
+        return [$value];
     }
 }
