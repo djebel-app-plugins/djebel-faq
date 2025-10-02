@@ -256,8 +256,13 @@ class Djebel_Faq_Plugin
         $cache_key = $this->plugin_id . '-' . $this->current_collection_id;
         $cache_params = ['plugin' => $this->plugin_id, 'ttl' => 8 * 60 * 60]; // 8 hours
 
+        $options_obj = Dj_App_Options::getInstance();
+
+        $cache_faq = $options_obj->get('plugins.djebel-faq.cache');
+        $cache_faq = !Dj_App_Util::isDisabled($cache_faq); // if not explicitly disabled.
+
         // Try to get from cache
-        $cached_data = Dj_App_Cache::get($cache_key, $cache_params);
+        $cached_data = $cache_faq ? Dj_App_Cache::get($cache_key, $cache_params) : false;
 
         if (!empty($cached_data)) {
             return $cached_data;
