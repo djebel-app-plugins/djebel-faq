@@ -470,9 +470,19 @@ class Djebel_Faq_Plugin
         $content = strip_tags($content, $allowed_tags);
 
         // Additional security: remove any javascript: or data: attributes
-        $content = preg_replace('/\s*on\w+\s*=\s*["\'][^"\']*["\']/', '', $content);
-        $content = preg_replace('/\s*javascript\s*:/i', '', $content);
-        $content = preg_replace('/\s*data\s*:/i', '', $content);
+        if (strpos($content, ' on') !== false) {
+            $content = preg_replace('#\s*on\w+\s*=\s*["\'][^"\']*["\']#si', '', $content);
+        }
+
+        if (stripos($content, 'javascript:') !== false) {
+            $content = preg_replace('#\s*javascript\s*:#si', '', $content);
+        }
+
+        if (stripos($content, 'data:') !== false) {
+            $content = preg_replace('#\s*data\s*:#si', '', $content);
+        }
+
+        $content = trim($content);
 
         return $content;
     }
