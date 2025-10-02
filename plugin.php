@@ -24,6 +24,7 @@ class Djebel_Faq_Plugin
     private $plugin_id = 'djebel-faq';
     private $cache_dir;
     private $current_collection_id;
+    private $sort_by = 'file';
 
     public function __construct()
     {
@@ -311,7 +312,17 @@ class Djebel_Faq_Plugin
             }
         }
 
-        // Sort by creation_date or sort_order
+        // Allow customizing sort field
+        $options_obj = Dj_App_Options::getInstance();
+        $sort_by = $options_obj->get('plugins.djebel-faq.sort_by');
+
+        if (!empty($sort_by)) {
+            $this->sort_by = $sort_by;
+        }
+
+        $this->sort_by = Dj_App_Hooks::applyFilter('app.plugin.faq.sort_by', $this->sort_by);
+
+        // Sort by configured field
         usort($faq_data, [ $this, 'sortFaqItems' ]);
 
         // Allow filtering of FAQ data
@@ -451,30 +462,47 @@ class Djebel_Faq_Plugin
     
     private function sortFaqItems($a, $b)
     {
-        // First sort by filename (numeric prefix like 001-, 002-, etc.)
-        if (isset($a['file']) && isset($b['file'])) {
-            $file_a = basename($a['file']);
-            $file_b = basename($b['file']);
-            $cmp = strcmp($file_a, $file_b);
+        $field = $this->sort_by;
+        $val_a = false;
+        $val_b = false;
 
-            if ($cmp !== 0) {
-                return $cmp;
+        // Get values based on sort field
+        if ($field === 'file') {
+            $val_a = isset($a['file']) ? basename($a['file']) : false;
+            $val_b = isset($b['file']) ? basename($b['file']) : false;
+        } elseif ($field === 'creation_date') {
+            $val_a = isset($a['creation_date']) ? strtotime($a['creation_date']) : false;
+            $val_b = isset($b['creation_date']) ? strtotime($b['creation_date']) : false;
+        } elseif ($field === 'last_modified') {
+            $val_a = isset($a['last_modified']) ? strtotime($a['last_modified']) : false;
+            $val_b = isset($b['last_modified']) ? strtotime($b['last_modified']) : false;
+        } elseif ($field === 'title') {
+            $val_a = isset($a['title']) ? $a['title'] : false;
+            $val_b = isset($b['title']) ? $b['title'] : false;
+        } elseif ($field === 'sort_order') {
+            $val_a = isset($a['sort_order']) ? $a['sort_order'] : false;
+            $val_b = isset($b['sort_order']) ? $b['sort_order'] : false;
+        }
+
+        // Handle missing values
+        if ($val_a && !$val_b) {
+            return -1;
+        }
+
+        if (!$val_a && $val_b) {
+            return 1;
+        }
+
+        // Both have values - compare
+        if ($val_a && $val_b) {
+            if (is_numeric($val_a) && is_numeric($val_b)) {
+                return $val_a - $val_b;
+            } else {
+                return strcasecmp($val_a, $val_b);
             }
         }
 
-        // Then sort by sort_order if available
-        /*if (isset($a['sort_order']) && isset($b['sort_order'])) {
-            if ($a['sort_order'] != $b['sort_order']) {
-                return $a['sort_order'] - $b['sort_order'];
-            }
-        }*/
-
-        // Then sort by creation_date
-        if (isset($a['creation_date']) && isset($b['creation_date'])) {
-            return strtotime($a['creation_date']) - strtotime($b['creation_date']);
-        }
-
-        // Finally sort by title (case-insensitive)
+        // Fallback: sort by title
         return strcasecmp($a['title'], $b['title']);
     }
 
