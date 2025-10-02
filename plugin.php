@@ -21,12 +21,13 @@ $obj = new Djebel_Faq_Plugin();
 
 class Djebel_Faq_Plugin
 {
+    private $plugin_id = 'djebel-faq';
     private $cache_dir;
     private $current_collection_id;
-    
+
     public function __construct()
     {
-        $this->cache_dir = Dj_App_Util::getCoreCacheDir(['plugin' => 'djebel-faq']);
+        $this->cache_dir = Dj_App_Util::getCoreCacheDir(['plugin' => $this->plugin_id]);
 
         $shortcode_obj = Dj_App_Shortcode::getInstance();
         $shortcode_obj->addShortcode('djebel-faq', [ $this, 'renderFaq' ]);
@@ -251,23 +252,23 @@ class Djebel_Faq_Plugin
     {
         $collection_id = empty($params['id']) ? 'default' : trim($params['id']);
         $this->current_collection_id = Dj_App_String_Util::formatSlug($collection_id);
-        $cache_file = $this->getCacheFile($this->current_collection_id);
-        
-        // Check if cache exists and is valid (less than 8 hours old)
-        if ($this->isCacheValid($cache_file)) {
-            $cached_data = $this->loadFromCache($cache_file);
-            
-            if (!empty($cached_data)) {
-                return $cached_data;
-            }
+
+        $cache_key = $this->plugin_id . '-' . $this->current_collection_id;
+        $cache_params = ['plugin' => $this->plugin_id, 'ttl' => 8 * 60 * 60]; // 8 hours
+
+        // Try to get from cache
+        $cached_data = Dj_App_Cache::get($cache_key, $cache_params);
+
+        if (!empty($cached_data)) {
+            return $cached_data;
         }
-        
+
         // Generate fresh data
         $faq_data = $this->generateFaqData($params);
-        
+
         // Save to cache
-        $this->saveToCache($cache_file, $faq_data);
-        
+        Dj_App_Cache::set($cache_key, $faq_data, $cache_params);
+
         return $faq_data;
     }
     
@@ -311,19 +312,12 @@ class Djebel_Faq_Plugin
 
         return $faq_data;
     }
-    
-    private function generateId($title)
-    {
-        $hash = sha1($title);
-        $id = substr($hash, 0, 10);
-        return $id;
-    }
-    
+
     private function getDataDirectory($params = [])
     {
         $collection_id = empty($params['id']) ? 'default' : trim($params['id']);
         $formatted_id = Dj_App_String_Util::formatSlug($collection_id);
-        $data_dir = Dj_App_Util::getCorePrivateDataDir(['plugin' => 'djebel-faq']) . '/' . $formatted_id;
+        $data_dir = Dj_App_Util::getCorePrivateDataDir(['plugin' => $this->plugin_id]) . '/' . $formatted_id;
         return $data_dir;
     }
     
@@ -465,123 +459,6 @@ class Djebel_Faq_Plugin
         return strcasecmp($a['title'], $b['title']);
     }
 
-    private function getCacheFile($collection_id)
-    {
-        // Ensure cache directory exists
-        if (!is_dir($this->cache_dir)) {
-            Dj_App_File_Util::mkdir($this->cache_dir);
-        }
-        
-        return $this->cache_dir . '/' . $collection_id . '.json';
-    }
-    
-    private function isCacheValid($cache_file)
-    {
-        if (!file_exists($cache_file)) {
-            return false;
-        }
-        
-        $file_time = filemtime($cache_file);
-        $current_time = time();
-        $cache_age = $current_time - $file_time;
-        
-        // Cache is valid for 8 hours (28800 seconds)
-        return $cache_age < 28800;
-    }
-    
-    /**
-     * Load FAQ data from cache file
-     * @param string $cache_file Path to cache file
-     * @return array|null FAQ data array or null if cache invalid
-     */
-    private function loadFromCache($cache_file)
-    {
-        if (!file_exists($cache_file)) {
-            $result = null;
-            return $result;
-        }
-        
-        $cache_content = Dj_App_File_Util::read($cache_file);
-
-        if (empty($cache_content)) {
-            $result = null;
-            return $result;
-        }
-
-        $cached_data = @unserialize($cache_content);
-
-        if ($cached_data === false) {
-            $result = null;
-            return $result;
-        }
-
-        // Return the data field from the cache structure
-        $result = isset($cached_data['data']) ? $cached_data['data'] : null;
-        return $result;
-    }
-    
-    /**
-     * Save FAQ data to cache file with meta information
-     * @param string $cache_file Path to cache file
-     * @param array $faq_data FAQ data array to cache
-     * @return Dj_App_Result
-     */
-    private function saveToCache($cache_file, $faq_data)
-    {
-        $res_obj = new Dj_App_Result();
-
-        $cache_data = [
-            'meta' => [
-                'created_at' => date('Y-m-d H:i:s'),
-                'collection_id' => $this->getCurrentCollectionId(),
-                'total_items' => count($faq_data),
-                'cache_version' => '1.0',
-            ],
-            'data' => $faq_data,
-        ];
-
-        $cache_content = serialize($cache_data);
-
-        if ($cache_content === false) {
-            $res_obj->msg = "Can't serialize data";
-            return $res_obj;
-        }
-        
-        $result = Dj_App_File_Util::write($cache_file, $cache_content);
-
-        return $result;
-    }
-    
-    public function clearCache($collection_id = 'default')
-    {
-        $formatted_id = Dj_App_String_Util::formatSlug($collection_id);
-        $cache_file = $this->getCacheFile($formatted_id);
-        
-        if (file_exists($cache_file)) {
-            unlink($cache_file);
-        }
-        
-        return true;
-    }
-    
-    public function clearAllCache()
-    {
-        if (!is_dir($this->cache_dir)) {
-            return true;
-        }
-
-        $success = true;
-        $cache_files = glob($this->cache_dir . '/*.json');
-
-        foreach ($cache_files as $file) {
-            if (!unlink($file)) {
-                $success = false;
-            }
-        }
-        
-        return $success;
-    }
-    
     private function sanitizeContent($content)
     {
         // Allow safe HTML tags for FAQ content
