@@ -387,8 +387,7 @@ class Djebel_Faq_Plugin
         // Finally sort by title (case-insensitive)
         return strcasecmp($a['title'], $b['title']);
     }
-    
-    
+
     private function getCacheFile($collection_id)
     {
         // Ensure cache directory exists
@@ -448,7 +447,7 @@ class Djebel_Faq_Plugin
      * Save FAQ data to cache file with meta information
      * @param string $cache_file Path to cache file
      * @param array $faq_data FAQ data array to cache
-     * @return bool True if saved successfully, false otherwise
+     * @return Dj_App_Result
      */
     private function saveToCache($cache_file, $faq_data)
     {
