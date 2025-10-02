@@ -443,6 +443,7 @@ class Djebel_Faq_Plugin
             'category' => isset($meta['category']) ? $meta['category'] : 'general',
             'tags' => isset($meta['tags']) ? (array) $meta['tags'] : [],
             'related_faqs' => isset($meta['related_faqs']) ? (array) $meta['related_faqs'] : [],
+            'file' => $file,
         ];
 
         return $result;
@@ -450,18 +451,29 @@ class Djebel_Faq_Plugin
     
     private function sortFaqItems($a, $b)
     {
-        // First sort by sort_order if available
-        if (isset($a['sort_order']) && isset($b['sort_order'])) {
+        // First sort by filename (numeric prefix like 001-, 002-, etc.)
+        if (isset($a['file']) && isset($b['file'])) {
+            $file_a = basename($a['file']);
+            $file_b = basename($b['file']);
+            $cmp = strcmp($file_a, $file_b);
+
+            if ($cmp !== 0) {
+                return $cmp;
+            }
+        }
+
+        // Then sort by sort_order if available
+        /*if (isset($a['sort_order']) && isset($b['sort_order'])) {
             if ($a['sort_order'] != $b['sort_order']) {
                 return $a['sort_order'] - $b['sort_order'];
             }
-        }
-        
+        }*/
+
         // Then sort by creation_date
         if (isset($a['creation_date']) && isset($b['creation_date'])) {
             return strtotime($a['creation_date']) - strtotime($b['creation_date']);
         }
-        
+
         // Finally sort by title (case-insensitive)
         return strcasecmp($a['title'], $b['title']);
     }
