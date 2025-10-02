@@ -597,44 +597,4 @@ class Djebel_Faq_Plugin
 
         return $content;
     }
-
-    /**
-     * Parses array value from string format: [item1, item2, item3]
-     *
-     * @param string $value String value that might be an array
-     * @return array Parsed array or single value wrapped in array
-     */
-    private function parseArrayValue($value)
-    {
-        if (empty($value)) {
-            return [];
-        }
-
-        // Already an array
-        if (is_array($value)) {
-            return $value;
-        }
-
-        // Check for array notation: [item1, item2, item3]
-        $value = trim($value);
-
-        if ($value[0] === '[' && substr($value, -1) === ']') {
-            $array_content = substr($value, 1, -1);
-            $items = explode(',', $array_content);
-            $parsed_items = [];
-
-            foreach ($items as $item) {
-                $item = trim($item);
-
-                if (!empty($item)) {
-                    $parsed_items[] = $item;
-                }
-            }
-
-            return $parsed_items;
-        }
-
-        // Single value
-        return [$value];
-    }
 }
