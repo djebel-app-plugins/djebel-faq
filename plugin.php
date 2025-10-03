@@ -49,28 +49,28 @@ class Djebel_Faq_Plugin
         
         ?>
         <style>
-        .djebel-faq-container {
+        .djebel-plugin-faq-container {
             max-width: 800px;
             margin: 0 auto;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         
-        .djebel-faq-container.align-left {
+        .djebel-plugin-faq-container.align-left {
             margin-left: 0;
             margin-right: auto;
         }
         
-        .djebel-faq-container.align-right {
+        .djebel-plugin-faq-container.align-right {
             margin-left: auto;
             margin-right: 0;
         }
         
-        .djebel-faq-container.align-center {
+        .djebel-plugin-faq-container.align-center {
             margin-left: auto;
             margin-right: auto;
         }
         
-        .djebel-faq-title {
+        .djebel-plugin-faq-title {
             font-size: 1.5rem;
             font-weight: 600;
             margin-bottom: 1.5rem;
@@ -78,7 +78,7 @@ class Djebel_Faq_Plugin
             text-align: center;
         }
         
-        .djebel-faq-item {
+        .djebel-plugin-faq-item {
             border: 1px solid #e5e7eb;
             border-radius: 8px;
             margin-bottom: 0.5rem;
@@ -87,12 +87,12 @@ class Djebel_Faq_Plugin
             transition: all 0.2s ease;
         }
         
-        .djebel-faq-item:hover {
+        .djebel-plugin-faq-item:hover {
             border-color: #d1d5db;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
         
-        .djebel-faq-question {
+        .djebel-plugin-faq-question {
             width: 100%;
             padding: 1rem 1.25rem;
             background: none;
@@ -108,16 +108,16 @@ class Djebel_Faq_Plugin
             transition: background-color 0.2s ease;
         }
         
-        .djebel-faq-question:hover {
+        .djebel-plugin-faq-question:hover {
             background-color: #f9fafb;
         }
         
-        .djebel-faq-question:focus {
+        .djebel-plugin-faq-question:focus {
             outline: 2px solid #3b82f6;
             outline-offset: -2px;
         }
         
-        .djebel-faq-icon {
+        .djebel-plugin-faq-icon {
             width: 20px;
             height: 20px;
             display: flex;
@@ -131,38 +131,38 @@ class Djebel_Faq_Plugin
             margin-left: 1rem;
         }
         
-        .djebel-faq-item.active .djebel-faq-icon {
+        .djebel-plugin-faq-item.active .djebel-plugin-faq-icon {
             transform: rotate(45deg);
         }
         
-        .djebel-faq-answer {
+        .djebel-plugin-faq-answer {
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.3s ease;
             background-color: #f9fafb;
         }
         
-        .djebel-faq-answer-content {
+        .djebel-plugin-faq-answer-content {
             padding: 0 1.25rem 1rem 1.25rem;
             color: #4b5563;
             line-height: 1.6;
         }
         
-        .djebel-faq-item.active .djebel-faq-answer {
+        .djebel-plugin-faq-item.active .djebel-plugin-faq-answer {
             max-height: 500px;
         }
         
         @media (max-width: 640px) {
-            .djebel-faq-container {
+            .djebel-plugin-faq-container {
                 margin: 0 1rem;
             }
             
-            .djebel-faq-question {
+            .djebel-plugin-faq-question {
                 padding: 0.875rem 1rem;
                 font-size: 0.9rem;
             }
             
-            .djebel-faq-answer-content {
+            .djebel-plugin-faq-answer-content {
                 padding: 0 1rem 0.875rem 1rem;
             }
         }
@@ -199,15 +199,15 @@ class Djebel_Faq_Plugin
             'use strict';
             
             function initFaq() {
-                const faqItems = document.querySelectorAll('.djebel-faq-item');
+                const faqItems = document.querySelectorAll('.djebel-plugin-faq-item');
                 
                 if (faqItems.length === 0) {
                     return;
                 }
                 
                 faqItems.forEach(function(item) {
-                    const question = item.querySelector('.djebel-faq-question');
-                    const answer = item.querySelector('.djebel-faq-answer');
+                    const question = item.querySelector('.djebel-plugin-faq-question');
+                    const answer = item.querySelector('.djebel-plugin-faq-answer');
                     
                     if (!question || !answer) {
                         return;
@@ -220,7 +220,7 @@ class Djebel_Faq_Plugin
                         faqItems.forEach(function(otherItem) {
                             if (otherItem !== item) {
                                 otherItem.classList.remove('active');
-                                const otherQuestion = otherItem.querySelector('.djebel-faq-question');
+                                const otherQuestion = otherItem.querySelector('.djebel-plugin-faq-question');
                                 if (otherQuestion) {
                                     otherQuestion.setAttribute('aria-expanded', 'false');
                                 }
