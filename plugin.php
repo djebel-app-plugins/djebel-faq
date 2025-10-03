@@ -15,6 +15,7 @@ company_name: Orbisius
 author_uri: https://orbisius.com
 text_domain: djebel-faq
 license: gpl2
+requires: djebel-markdown
 */
 
 $obj = new Djebel_Faq_Plugin();
