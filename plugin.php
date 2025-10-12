@@ -167,25 +167,25 @@ class Djebel_Faq_Plugin
             }
         }
         </style>
-        
-        <div class="djebel-faq-container align-<?php echo Djebel_App_HTML::encodeEntities($align); ?>">
-            <?php 
-            if ($has_custom_title || $render_title) { 
+
+        <div class="djebel-plugin-faq-container align-<?php echo Djebel_App_HTML::encodeEntities($align); ?>">
+            <?php
+            if ($has_custom_title || $render_title) {
             ?>
-                <h2 class="djebel-faq-title"><?php echo Djebel_App_HTML::encodeEntities($title); ?></h2>
-            <?php 
-            } 
+                <h2 class="djebel-plugin-faq-title"><?php echo Djebel_App_HTML::encodeEntities($title); ?></h2>
+            <?php
+            }
             ?>
-            
-            <div class="djebel-faq-list">
+
+            <div class="djebel-plugin-faq-list">
                 <?php foreach ($faq_data as $faq) { ?>
-                    <div class="djebel-faq-item" data-faq-id="<?php echo $faq['id']; ?>">
-                        <button class="djebel-faq-question" type="button" aria-expanded="false">
+                    <div class="djebel-plugin-faq-item" data-faq-id="<?php echo $faq['id']; ?>">
+                        <button class="djebel-plugin-faq-question" type="button" aria-expanded="false">
                             <span><?php echo Djebel_App_HTML::encodeEntities($faq['title']); ?></span>
-                            <span class="djebel-faq-icon">+</span>
+                            <span class="djebel-plugin-faq-icon">+</span>
                         </button>
-                        <div class="djebel-faq-answer">
-                            <div class="djebel-faq-answer-content">
+                        <div class="djebel-plugin-faq-answer">
+                            <div class="djebel-plugin-faq-answer-content">
                                 <?php echo $this->sanitizeContent($faq['content']); ?>
                             </div>
                         </div>
@@ -408,22 +408,21 @@ class Djebel_Faq_Plugin
             return $result;
         }
 
-        // Read entire file
-        $file_content = Dj_App_File_Util::read($file);
+        // Parse frontmatter via markdown plugin (it reads the file from $ctx)
+        $ctx = [
+            'file' => $file,
+            'full' => 1,
+        ];
 
-        if (empty($file_content)) {
+        $parse_res = Dj_App_Hooks::applyFilter('app.plugins.markdown.parse_front_matter', '', $ctx);
+
+        if (!is_object($parse_res) || $parse_res->isError()) {
             $result = null;
             return $result;
         }
 
-        // Parse frontmatter via markdown plugin
-        $ctx = ['file' => $file];
-        $meta = Dj_App_Hooks::applyFilter('app.plugins.markdown.parse_front_matter', $file_content, $ctx);
-
-        if (empty($meta)) {
-            $result = null;
-            return $result;
-        }
+        $meta = $parse_res->meta;
+        $content = $parse_res->content;
 
         // Only return active FAQs (default to active if not specified)
         $status = isset($meta['status']) ? $meta['status'] : 'active';
@@ -437,13 +436,14 @@ class Djebel_Faq_Plugin
         $ctx = [
             'source' => 'djebel-faq',
             'file' => $file,
+            'full' => 1,
         ];
 
-        $html_content = Dj_App_Hooks::applyFilter('app.plugins.markdown.convert_markdown', $file_content, $ctx);
+        $html_content = Dj_App_Hooks::applyFilter('app.plugins.markdown.convert_markdown', $content, $ctx);
 
         // Fallback to raw content if no markdown processor registered
         if (empty($html_content)) {
-            $html_content = $file_content;
+            $html_content = $content;
         }
 
         $result = [
