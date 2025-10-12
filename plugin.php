@@ -418,7 +418,7 @@ class Djebel_Faq_Plugin
 
         // Parse frontmatter via markdown plugin
         $ctx = ['file' => $file];
-        $meta = Dj_App_Hooks::applyFilter('app.plugins.markdown.parse_markdown_front_matter', $file_content, $ctx);
+        $meta = Dj_App_Hooks::applyFilter('app.plugins.markdown.parse_front_matter', $file_content, $ctx);
 
         if (empty($meta)) {
             $result = null;
@@ -439,7 +439,7 @@ class Djebel_Faq_Plugin
             'file' => $file,
         ];
 
-        $html_content = Dj_App_Hooks::applyFilter('app.plugins.markdown.parse_markdown', $file_content, $ctx);
+        $html_content = Dj_App_Hooks::applyFilter('app.plugins.markdown.convert_markdown', $file_content, $ctx);
 
         // Fallback to raw content if no markdown processor registered
         if (empty($html_content)) {
