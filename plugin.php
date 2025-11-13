@@ -353,12 +353,14 @@ class Djebel_Faq_Plugin
             return $result;
         }
 
-        $json_content = Dj_App_File_Util::read($file);
+        $read_result = Dj_App_File_Util::read($file);
 
-        if (empty($json_content)) {
+        if ($read_result->isError() || empty($read_result->output)) {
             $result = null;
             return $result;
         }
+
+        $json_content = $read_result->output;
 
         $data = Dj_App_String_Util::jsonDecode($json_content);
 
