@@ -178,15 +178,21 @@ class Djebel_Faq_Plugin
             ?>
 
             <div class="djebel-plugin-faq-list">
-                <?php foreach ($faq_data as $faq) { ?>
-                    <div class="djebel-plugin-faq-item" data-faq-id="<?php echo $faq['id']; ?>">
+                <?php foreach ($faq_data as $faq) {
+                    $faq_id = empty($faq['id']) ? '' : $faq['id'];
+                    $faq_title = empty($faq['title']) ? '' : $faq['title'];
+                ?>
+                    <div class="djebel-plugin-faq-item" data-faq-id="<?php echo Djebel_App_HTML::escAttr($faq_id); ?>">
                         <button class="djebel-plugin-faq-question" type="button" aria-expanded="false">
-                            <span><?php echo Djebel_App_HTML::encodeEntities($faq['title']); ?></span>
+                            <span><?php echo Djebel_App_HTML::encodeEntities($faq_title); ?></span>
                             <span class="djebel-plugin-faq-icon">+</span>
                         </button>
                         <div class="djebel-plugin-faq-answer">
                             <div class="djebel-plugin-faq-answer-content">
-                                <?php echo $this->sanitizeContent($faq['content']); ?>
+                                <?php
+                                $content = empty($faq['content']) ? '' : $faq['content'];
+                                echo $this->sanitizeContent($content);
+                                ?>
                             </div>
                         </div>
                     </div>
@@ -384,14 +390,14 @@ class Djebel_Faq_Plugin
         }
 
         $result = [
-            'id' => $meta['id'],
-            'title' => $meta['title'],
-            'content' => $faq_data['content'],
-            'creation_date' => $meta['creation_date'],
-            'sort_order' => isset($meta['sort_order']) ? $meta['sort_order'] : 0,
-            'category' => isset($meta['category']) ? $meta['category'] : 'general',
-            'tags' => isset($faq_data['tags']) ? $faq_data['tags'] : [],
-            'related_faqs' => isset($faq_data['related_faqs']) ? $faq_data['related_faqs'] : [],
+            'id' => $this->getHash($meta),
+            'title' => empty($meta['title']) ? '' : $meta['title'],
+            'content' => empty($faq_data['content']) ? '' : $faq_data['content'],
+            'creation_date' => empty($meta['creation_date']) ? '' : $meta['creation_date'],
+            'sort_order' => empty($meta['sort_order']) ? 0 : $meta['sort_order'],
+            'category' => empty($meta['category']) ? 'general' : $meta['category'],
+            'tags' => empty($faq_data['tags']) ? [] : $faq_data['tags'],
+            'related_faqs' => empty($faq_data['related_faqs']) ? [] : $faq_data['related_faqs'],
         ];
 
         return $result;
@@ -427,7 +433,7 @@ class Djebel_Faq_Plugin
         $content = $parse_res->content;
 
         // Only return active FAQs (default to active if not specified)
-        $status = isset($meta['status']) ? $meta['status'] : 'active';
+        $status = empty($meta['status']) ? 'active' : $meta['status'];
 
         if ($status !== 'active') {
             $result = null;
@@ -449,20 +455,41 @@ class Djebel_Faq_Plugin
         }
 
         $result = [
-            'id' => isset($meta['id']) ? $meta['id'] : '',
-            'title' => isset($meta['title']) ? $meta['title'] : '',
+            'id' => $this->getHash($meta),
+            'title' => empty($meta['title']) ? '' : $meta['title'],
             'content' => $html_content,
-            'creation_date' => isset($meta['creation_date']) ? $meta['creation_date'] : '',
-            'sort_order' => isset($meta['sort_order']) ? (int)$meta['sort_order'] : 0,
-            'category' => isset($meta['category']) ? $meta['category'] : 'general',
-            'tags' => isset($meta['tags']) ? (array) $meta['tags'] : [],
-            'related_faqs' => isset($meta['related_faqs']) ? (array) $meta['related_faqs'] : [],
+            'creation_date' => empty($meta['creation_date']) ? '' : $meta['creation_date'],
+            'sort_order' => empty($meta['sort_order']) ? 0 : (int) $meta['sort_order'],
+            'category' => empty($meta['category']) ? 'general' : $meta['category'],
+            'tags' => empty($meta['tags']) ? [] : (array) $meta['tags'],
+            'related_faqs' => empty($meta['related_faqs']) ? [] : (array) $meta['related_faqs'],
             'file' => $file,
         ];
 
         return $result;
     }
-    
+
+    /**
+     * Get hash ID from FAQ metadata with fallback support
+     *
+     * @param array $meta Front matter metadata
+     * @return string Hash ID from metadata, empty if not found
+     */
+    private function getHash($meta = [])
+    {
+        $hash_id = empty($meta['hash_id']) ? '' : $meta['hash_id'];
+
+        if (empty($hash_id)) {
+            $hash_id = empty($meta['hash']) ? '' : $meta['hash'];
+        }
+
+        if (empty($hash_id)) {
+            $hash_id = empty($meta['id']) ? '' : $meta['id'];
+        }
+
+        return $hash_id;
+    }
+
     private function sortFaqItems($a, $b)
     {
         $field = $this->sort_by;
@@ -511,6 +538,10 @@ class Djebel_Faq_Plugin
 
     private function sanitizeContent($content)
     {
+        if (empty($content)) {
+            return '';
+        }
+
         // Allow safe HTML tags for FAQ content
         $allowed_tags = '<p><br><strong><em><u><ul><ol><li><a><h1><h2><h3><h4><h5><h6><blockquote><code><pre>';
 
