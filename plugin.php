@@ -285,7 +285,12 @@ class Djebel_Faq_Plugin
         return $faq_data;
     }
     
-    private function generateFaqData($params = [])
+    /**
+     * Generate FAQ data by scanning data directory for markdown/json files
+     * @param array $params Optional params with 'id' for collection
+     * @return array
+     */
+    public function generateFaqData($params = [])
     {
         $faq_data = [];
         $data_dir = $this->getDataDirectory($params);
@@ -338,7 +343,13 @@ class Djebel_Faq_Plugin
         return $faq_data;
     }
 
-    private function getDataDirectory($params = [])
+    /**
+     * Get data directory path for a FAQ collection
+     * Checks public dir first, falls back to private dir
+     * @param array $params Optional params with 'id' for collection
+     * @return string
+     */
+    public function getDataDirectory($params = [])
     {
         $collection_id = empty($params['id']) ? 'default' : trim($params['id']);
         $formatted_id = Dj_App_String_Util::formatSlug($collection_id);
@@ -358,13 +369,22 @@ class Djebel_Faq_Plugin
         return $data_dir;
     }
     
-    private function getCurrentCollectionId()
+    /**
+     * Get the current FAQ collection ID
+     * @return string
+     */
+    public function getCurrentCollectionId()
     {
         $collection_id = empty($this->current_collection_id) ? 'default' : $this->current_collection_id;
         return $collection_id;
     }
     
-    private function loadFaqFromJson($file)
+    /**
+     * Load FAQ item from a JSON file
+     * @param string $file Path to .json file
+     * @return array|null FAQ data array or null if invalid
+     */
+    public function loadFaqFromJson($file)
     {
         if (!file_exists($file)) {
             $result = null;
@@ -421,7 +441,7 @@ class Djebel_Faq_Plugin
      * @param string $file Path to .md file
      * @return array|null FAQ data array or null if invalid
      */
-    private function loadFaqFromMarkdown($file)
+    public function loadFaqFromMarkdown($file)
     {
         if (!file_exists($file)) {
             $result = null;
@@ -487,7 +507,7 @@ class Djebel_Faq_Plugin
      * @param array $meta Front matter metadata
      * @return string Hash ID from metadata, empty if not found
      */
-    private function getHash($meta = [])
+    public function getHash($meta = [])
     {
         $hash_id = empty($meta['hash_id']) ? '' : $meta['hash_id'];
 
@@ -502,7 +522,13 @@ class Djebel_Faq_Plugin
         return $hash_id;
     }
 
-    private function sortFaqItems($a, $b)
+    /**
+     * Sort callback for FAQ items by configured field
+     * @param array $a First FAQ item
+     * @param array $b Second FAQ item
+     * @return int
+     */
+    public function sortFaqItems($a, $b)
     {
         $field = $this->sort_by;
         $val_a = false;
@@ -548,7 +574,12 @@ class Djebel_Faq_Plugin
         return strcasecmp($a['title'], $b['title']);
     }
 
-    private function sanitizeContent($content)
+    /**
+     * Sanitize FAQ content, allowing safe HTML tags
+     * @param string $content Raw HTML content
+     * @return string Sanitized content
+     */
+    public function sanitizeContent($content)
     {
         if (empty($content)) {
             return '';
