@@ -342,7 +342,19 @@ class Djebel_Faq_Plugin
     {
         $collection_id = empty($params['id']) ? 'default' : trim($params['id']);
         $formatted_id = Dj_App_String_Util::formatSlug($collection_id);
-        $data_dir = Dj_App_Util::getCorePrivateDataDir(['plugin' => $this->plugin_id]) . '/' . $formatted_id;
+
+        $plugin_params = [ 'plugin' => $this->plugin_id, ];
+
+        // Check public data dir first (dj-content/data/app/plugins/)
+        $data_dir = Dj_App_Util::getContentDataDir($plugin_params) . '/' . $formatted_id;
+
+        if (is_dir($data_dir)) {
+            return $data_dir;
+        }
+
+        // Fall back to private data dir (.ht_djebel/data/app/plugins/)
+        $data_dir = Dj_App_Util::getCorePrivateDataDir($plugin_params) . '/' . $formatted_id;
+
         return $data_dir;
     }
     
