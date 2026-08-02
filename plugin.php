@@ -145,21 +145,27 @@ class Djebel_Faq_Plugin
             transform: rotate(45deg);
         }
         
+        /* The open row grows to whatever the answer actually is (0fr -> 1fr), so there is
+           no height ceiling that could cut a long answer off. A browser that can't animate
+           to fr units toggles instantly instead - it still never clips. */
         .djebel-plugin-faq-answer {
-            max-height: 0;
+            display: grid;
+            grid-template-rows: 0fr;
             overflow: hidden;
-            transition: max-height 0.3s ease;
+            transition: grid-template-rows 0.3s ease;
             background-color: #f9fafb;
         }
-        
+
         .djebel-plugin-faq-answer-content {
+            /* A grid item keeps its content height without this, so the row can't collapse. */
+            min-height: 0;
             padding: 0 1.25rem 1rem 1.25rem;
             color: #4b5563;
             line-height: 1.6;
         }
-        
+
         .djebel-plugin-faq-item.active .djebel-plugin-faq-answer {
-            max-height: 500px;
+            grid-template-rows: 1fr;
         }
         
         @media (max-width: 640px) {
