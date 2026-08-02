@@ -22,15 +22,25 @@ $obj = new Djebel_Faq_Plugin();
 
 class Djebel_Faq_Plugin
 {
+    // Sort field when the site sets none. Items ship as NNN-slug.md, so the file name
+    // carries the author's intended order without any front matter.
+    const SORT_BY_DEFAULT = 'file';
+
+    // Appended after the configured sort field. Two items that tie on that field - or
+    // don't carry it at all - keep falling through these until one of them orders them,
+    // so a missing, unknown or duplicated sort value never leaves the list arbitrary.
+    const SORT_FALLBACK_FIELDS = [ 'sort_order', 'file', 'title', ];
+
     private $plugin_id = 'djebel-faq';
     private $cache_dir;
     private $current_collection_id;
-    private $sort_by = 'file';
+
+    // Memos, filled by getSortBy() / getSortFields() on first call.
+    private $sort_by = '';
+    private $sort_fields = [];
 
     public function __construct()
     {
-        $this->cache_dir = Dj_App_Util::getCoreCacheDir(['plugin' => $this->plugin_id]);
-
         $shortcode_obj = Dj_App_Shortcode::getInstance();
         $shortcode_obj->addShortcode('djebel-faq', [ $this, 'renderFaq' ]);
     }
@@ -190,8 +200,9 @@ class Djebel_Faq_Plugin
                         <div class="djebel-plugin-faq-answer">
                             <div class="djebel-plugin-faq-answer-content">
                                 <?php
+                                // Already sanitized in generateFaqData, before caching.
                                 $content = empty($faq['content']) ? '' : $faq['content'];
-                                echo $this->sanitizeContent($content);
+                                echo $content;
                                 ?>
                             </div>
                         </div>
@@ -324,23 +335,41 @@ class Djebel_Faq_Plugin
             }
         }
 
-        // Allow customizing sort field
-        $options_obj = Dj_App_Options::getInstance();
-        $sort_by = $options_obj->get('plugins.djebel-faq.sort_by');
-
-        if (!empty($sort_by)) {
-            $this->sort_by = $sort_by;
-        }
-
-        $this->sort_by = Dj_App_Hooks::applyFilter('app.plugin.faq.sort_by', $this->sort_by);
-
-        // Sort by configured field
         usort($faq_data, [ $this, 'sortFaqItems' ]);
 
         // Allow filtering of FAQ data
         $faq_data = Dj_App_Hooks::applyFilter('app.plugin.faq.data', $faq_data);
 
+        // Sanitized here, not at render: this result is what gets cached, so the
+        // strip_tags + preg_replace pass runs once per cache fill instead of on every
+        // request. Runs after the data filter so hooked-in content is covered too.
+        foreach ($faq_data as $idx => $faq_item) {
+            if (empty($faq_item['content'])) {
+                continue;
+            }
+
+            $faq_data[$idx]['content'] = $this->sanitizeContent($faq_item['content']);
+        }
+
         return $faq_data;
+    }
+
+    /**
+     * This plugin's cache directory. Resolved on first call and memoized, so a request
+     * that never reaches the cache dir never pays for resolving it.
+     *
+     * @return string
+     */
+    public function getCacheDir()
+    {
+        static $cache_dir = null;
+
+        if (is_null($cache_dir)) {
+            $dir_params = [ 'plugin' => $this->plugin_id, ];
+            $cache_dir = Dj_App_Util::getCoreCacheDir($dir_params);
+        }
+
+        return $cache_dir;
     }
 
     /**
@@ -421,15 +450,27 @@ class Djebel_Faq_Plugin
             return $result;
         }
 
+        $hash_id = $this->getHash($meta);
+        $title = empty($meta['title']) ? '' : $meta['title'];
+        $content = empty($faq_data['content']) ? '' : $faq_data['content'];
+        $creation_date = empty($meta['creation_date']) ? '' : $meta['creation_date'];
+        $last_modified = empty($meta['last_modified']) ? '' : $meta['last_modified'];
+        $sort_order = empty($meta['sort_order']) ? 0 : $meta['sort_order'];
+        $category = empty($meta['category']) ? 'general' : $meta['category'];
+        $tags = empty($faq_data['tags']) ? [] : $faq_data['tags'];
+        $related_faqs = empty($faq_data['related_faqs']) ? [] : $faq_data['related_faqs'];
+
         $result = [
-            'id' => $this->getHash($meta),
-            'title' => empty($meta['title']) ? '' : $meta['title'],
-            'content' => empty($faq_data['content']) ? '' : $faq_data['content'],
-            'creation_date' => empty($meta['creation_date']) ? '' : $meta['creation_date'],
-            'sort_order' => empty($meta['sort_order']) ? 0 : $meta['sort_order'],
-            'category' => empty($meta['category']) ? 'general' : $meta['category'],
-            'tags' => empty($faq_data['tags']) ? [] : $faq_data['tags'],
-            'related_faqs' => empty($faq_data['related_faqs']) ? [] : $faq_data['related_faqs'],
+            'id' => $hash_id,
+            'title' => $title,
+            'content' => $content,
+            'creation_date' => $creation_date,
+            'last_modified' => $last_modified,
+            'sort_order' => $sort_order,
+            'category' => $category,
+            'tags' => $tags,
+            'related_faqs' => $related_faqs,
+            'file' => $file,
         ];
 
         return $result;
@@ -486,15 +527,28 @@ class Djebel_Faq_Plugin
             $html_content = $content;
         }
 
+        $hash_id = $this->getHash($meta);
+        $title = empty($meta['title']) ? '' : $meta['title'];
+        $creation_date = empty($meta['creation_date']) ? '' : $meta['creation_date'];
+        $last_modified = empty($meta['last_modified']) ? '' : $meta['last_modified'];
+        $sort_order = empty($meta['sort_order']) ? 0 : $meta['sort_order'];
+        $sort_order = (int) $sort_order;
+        $category = empty($meta['category']) ? 'general' : $meta['category'];
+        $tags = empty($meta['tags']) ? [] : $meta['tags'];
+        $tags = (array) $tags;
+        $related_faqs = empty($meta['related_faqs']) ? [] : $meta['related_faqs'];
+        $related_faqs = (array) $related_faqs;
+
         $result = [
-            'id' => $this->getHash($meta),
-            'title' => empty($meta['title']) ? '' : $meta['title'],
+            'id' => $hash_id,
+            'title' => $title,
             'content' => $html_content,
-            'creation_date' => empty($meta['creation_date']) ? '' : $meta['creation_date'],
-            'sort_order' => empty($meta['sort_order']) ? 0 : (int) $meta['sort_order'],
-            'category' => empty($meta['category']) ? 'general' : $meta['category'],
-            'tags' => empty($meta['tags']) ? [] : (array) $meta['tags'],
-            'related_faqs' => empty($meta['related_faqs']) ? [] : (array) $meta['related_faqs'],
+            'creation_date' => $creation_date,
+            'last_modified' => $last_modified,
+            'sort_order' => $sort_order,
+            'category' => $category,
+            'tags' => $tags,
+            'related_faqs' => $related_faqs,
             'file' => $file,
         ];
 
@@ -523,55 +577,161 @@ class Djebel_Faq_Plugin
     }
 
     /**
-     * Sort callback for FAQ items by configured field
+     * The field the sort compares on first. Reads plugins.djebel-faq.sort_by, falls back
+     * to SORT_BY_DEFAULT, and is filterable via app.plugin.faq.sort_by. Memoized, so the
+     * option lookup and the filter run once per request.
+     *
+     * @return string
+     */
+    public function getSortBy()
+    {
+        if (!empty($this->sort_by)) {
+            return $this->sort_by;
+        }
+
+        $options_obj = Dj_App_Options::getInstance();
+        $sort_by = $options_obj->get('plugins.djebel-faq.sort_by', self::SORT_BY_DEFAULT);
+        $sort_by = Dj_App_String_Util::trim($sort_by);
+        $sort_by = Dj_App_Hooks::applyFilter('app.plugin.faq.sort_by', $sort_by);
+
+        // A listener clearing it would leave the chain headed by an empty field name.
+        if (empty($sort_by)) {
+            $sort_by = self::SORT_BY_DEFAULT;
+        }
+
+        $this->sort_by = $sort_by;
+
+        return $this->sort_by;
+    }
+
+    /**
+     * The field the sort compares on first, followed by the fallback fields that break
+     * ties and cover items that don't carry it.
+     *
+     * Filterable via app.plugin.faq.sort_fields, so a site can reorder the chain, add its
+     * own front-matter field, or replace it outright; a listener returning anything
+     * unusable is ignored rather than left to break the sort. Memoized, so the filter
+     * runs once per request rather than on every comparison.
+     *
+     * @return array Sort field names, most significant first
+     */
+    public function getSortFields()
+    {
+        if (!empty($this->sort_fields)) {
+            return $this->sort_fields;
+        }
+
+        $sort_by = $this->getSortBy();
+
+        // array_unique keeps the first occurrence, so the configured field stays the
+        // primary sort even when it repeats in the fallback list.
+        $sort_fields = [ $sort_by, ];
+        $sort_fields = array_merge($sort_fields, self::SORT_FALLBACK_FIELDS);
+        $sort_fields = array_unique($sort_fields);
+
+        $ctx = [ 'sort_by' => $sort_by, ];
+
+        $filtered_sort_fields = Dj_App_Hooks::applyFilter('app.plugin.faq.sort_fields', $sort_fields, $ctx);
+
+        if (!empty($filtered_sort_fields) && is_array($filtered_sort_fields)) {
+            $sort_fields = $filtered_sort_fields;
+        }
+
+        $this->sort_fields = $sort_fields;
+
+        return $this->sort_fields;
+    }
+
+    /**
+     * Reads one FAQ item's value for a sort field, normalized so it can be compared:
+     * a file becomes its base name, a date becomes a timestamp.
+     *
+     * @param array $item FAQ item
+     * @param string $field Field name to read
+     * @return mixed Comparable value, or '' when the field is absent or unusable
+     */
+    public function getSortValue($item, $field)
+    {
+        // isset() (not empty()) so a real zero - sort_order: 0 - stays a value, not a miss.
+        if (!isset($item[$field])) {
+            return '';
+        }
+
+        $val = $item[$field];
+
+        if ($field == 'file') {
+            $val = Dj_App_File_Util::getBasename($val);
+
+            return $val;
+        }
+
+        if ($field == 'creation_date' || $field == 'last_modified') {
+            $ts = strtotime($val);
+
+            // An unparsable date orders nothing - report it as absent instead.
+            if (empty($ts)) {
+                return '';
+            }
+
+            return $ts;
+        }
+
+        return $val;
+    }
+
+    /**
+     * Sort callback for FAQ items. Compares on the configured field first, then walks
+     * the fallback fields, so the order stays stable and predictable whether the site
+     * set plugins.djebel-faq.sort_by or not - and even when it names a field the items
+     * don't carry.
+     *
      * @param array $a First FAQ item
      * @param array $b Second FAQ item
      * @return int
      */
     public function sortFaqItems($a, $b)
     {
-        $field = $this->sort_by;
-        $val_a = false;
-        $val_b = false;
+        $sort_fields = $this->getSortFields();
 
-        // Get values based on sort field
-        if ($field === 'file') {
-            $val_a = isset($a['file']) ? basename($a['file']) : false;
-            $val_b = isset($b['file']) ? basename($b['file']) : false;
-        } elseif ($field === 'creation_date') {
-            $val_a = isset($a['creation_date']) ? strtotime($a['creation_date']) : false;
-            $val_b = isset($b['creation_date']) ? strtotime($b['creation_date']) : false;
-        } elseif ($field === 'last_modified') {
-            $val_a = isset($a['last_modified']) ? strtotime($a['last_modified']) : false;
-            $val_b = isset($b['last_modified']) ? strtotime($b['last_modified']) : false;
-        } elseif ($field === 'title') {
-            $val_a = isset($a['title']) ? $a['title'] : false;
-            $val_b = isset($b['title']) ? $b['title'] : false;
-        } elseif ($field === 'sort_order') {
-            $val_a = isset($a['sort_order']) ? $a['sort_order'] : false;
-            $val_b = isset($b['sort_order']) ? $b['sort_order'] : false;
-        }
+        foreach ($sort_fields as $field) {
+            $val_a = $this->getSortValue($a, $field);
+            $val_b = $this->getSortValue($b, $field);
 
-        // Handle missing values
-        if ($val_a && !$val_b) {
-            return -1;
-        }
+            // Strict === here: '' is the absent marker, and a real 0 must not match it.
+            if ($val_a === '' && $val_b === '') {
+                continue;
+            }
 
-        if (!$val_a && $val_b) {
-            return 1;
-        }
+            // An item carrying the field wins over one that doesn't.
+            if ($val_a === '') {
+                return 1;
+            }
 
-        // Both have values - compare
-        if ($val_a && $val_b) {
+            if ($val_b === '') {
+                return -1;
+            }
+
             if (is_numeric($val_a) && is_numeric($val_b)) {
-                return $val_a - $val_b;
-            } else {
-                return strcasecmp($val_a, $val_b);
+                // Compared, not subtracted - a fractional difference truncates to 0.
+                if ($val_a < $val_b) {
+                    return -1;
+                }
+
+                if ($val_b < $val_a) {
+                    return 1;
+                }
+
+                continue;
+            }
+
+            $diff = strcasecmp($val_a, $val_b);
+
+            if ($diff != 0) {
+                return $diff;
             }
         }
 
-        // Fallback: sort by title
-        return strcasecmp($a['title'], $b['title']);
+        return 0;
     }
 
     /**
