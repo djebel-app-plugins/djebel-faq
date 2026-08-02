@@ -32,7 +32,6 @@ class Djebel_Faq_Plugin
     const SORT_FALLBACK_FIELDS = [ 'sort_order', 'file', 'title', ];
 
     private $plugin_id = 'djebel-faq';
-    private $cache_dir;
     private $current_collection_id;
 
     // Memos, filled by getSortBy() / getSortFields() on first call.
