@@ -46,8 +46,12 @@ class Djebel_Faq_Plugin
 
     public function renderFaq($params = [])
     {
-        $title = empty($params['title']) ? 'Frequently Asked Questions' : trim($params['title']);
-        $align = empty($params['align']) ? 'left' : trim($params['align']);
+        $title = empty($params['title']) ? 'Frequently Asked Questions' : $params['title'];
+        $title = Dj_App_String_Util::trim($title);
+
+        $align = empty($params['align']) ? 'left' : $params['align'];
+        $align = Dj_App_String_Util::trim($align);
+
         $render_title = empty($params['render_title']) ? 0 : 1;
         $has_custom_title = !empty($params['title']);
         $faq_data = $this->getFaqData($params);
@@ -274,10 +278,14 @@ class Djebel_Faq_Plugin
 
     public function getFaqData($params = [])
     {
-        $collection_id = empty($params['id']) ? 'default' : trim($params['id']);
+        $collection_id = empty($params['id']) ? 'default' : $params['id'];
+        $collection_id = Dj_App_String_Util::trim($collection_id);
         $this->current_collection_id = Dj_App_String_Util::formatSlug($collection_id);
 
-        $cache_key = $this->plugin_id . '-' . $this->current_collection_id;
+        // What gets cached is the SORTED list, so the sort field belongs in the key —
+        // otherwise changing it keeps serving the previous order until the entry expires.
+        $sort_by = $this->getSortBy();
+        $cache_key = $this->plugin_id . '-' . $this->current_collection_id . '-' . $sort_by;
         $cache_params = ['plugin' => $this->plugin_id, 'ttl' => 8 * 60 * 60]; // 8 hours
 
         $options_obj = Dj_App_Options::getInstance();
@@ -385,7 +393,8 @@ class Djebel_Faq_Plugin
      */
     public function getDataDirectory($params = [])
     {
-        $collection_id = empty($params['id']) ? 'default' : trim($params['id']);
+        $collection_id = empty($params['id']) ? 'default' : $params['id'];
+        $collection_id = Dj_App_String_Util::trim($collection_id);
         $formatted_id = Dj_App_String_Util::formatSlug($collection_id);
 
         $plugin_params = [ 'plugin' => $this->plugin_id, ];
@@ -769,7 +778,7 @@ class Djebel_Faq_Plugin
             $content = preg_replace('#\s*data\s*:#si', '', $content);
         }
 
-        $content = trim($content);
+        $content = Dj_App_String_Util::trim($content);
 
         return $content;
     }
