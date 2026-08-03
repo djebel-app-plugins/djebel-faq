@@ -59,7 +59,55 @@ class Djebel_Faq_Plugin
         if (empty($faq_data)) {
             return '<!-- No FAQ data available -->';
         }
-        
+
+        $this->renderAssets();
+
+        ?>
+
+        <div class="djebel-plugin-faq-container align-<?php echo dj_esc_attr($align); ?>">
+            <?php if ($has_custom_title || $render_title) : ?>
+                <h2 class="djebel-plugin-faq-title"><?php echo dj_esc($title); ?></h2>
+            <?php endif; ?>
+
+            <div class="djebel-plugin-faq-list">
+                <?php foreach ($faq_data as $faq) :
+                    $faq_id = empty($faq['id']) ? '' : $faq['id'];
+                    $faq_title = empty($faq['title']) ? '' : $faq['title'];
+
+                    // Already sanitized in generateFaqData, before caching.
+                    $content = empty($faq['content']) ? '' : $faq['content'];
+                    ?>
+                    <div class="djebel-plugin-faq-item" data-faq-id="<?php echo dj_esc_attr($faq_id); ?>">
+                        <button class="djebel-plugin-faq-question" type="button" aria-expanded="false">
+                            <span><?php echo dj_esc($faq_title); ?></span>
+                            <span class="djebel-plugin-faq-icon">+</span>
+                        </button>
+                        <div class="djebel-plugin-faq-answer">
+                            <div class="djebel-plugin-faq-answer-content"><?php echo $content; ?></div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php
+    }
+
+    /**
+     * Emits the accordion CSS and JS. Guarded by a static so a page carrying several
+     * FAQ shortcodes ships one copy instead of one per shortcode - the JS binds every
+     * .djebel-plugin-faq-item on the page, so a second copy would only re-bind them.
+     * The script defers to DOMContentLoaded, so emitting it ahead of the markup is fine.
+     * @return bool whether anything was emitted
+     */
+    public function renderAssets()
+    {
+        static $rendered = false;
+
+        if ($rendered) {
+            return false;
+        }
+
+        $rendered = true;
         ?>
         <style>
         .djebel-plugin-faq-container {
@@ -186,40 +234,6 @@ class Djebel_Faq_Plugin
             }
         }
         </style>
-
-        <div class="djebel-plugin-faq-container align-<?php echo Djebel_App_HTML::encodeEntities($align); ?>">
-            <?php
-            if ($has_custom_title || $render_title) {
-            ?>
-                <h2 class="djebel-plugin-faq-title"><?php echo Djebel_App_HTML::encodeEntities($title); ?></h2>
-            <?php
-            }
-            ?>
-
-            <div class="djebel-plugin-faq-list">
-                <?php foreach ($faq_data as $faq) {
-                    $faq_id = empty($faq['id']) ? '' : $faq['id'];
-                    $faq_title = empty($faq['title']) ? '' : $faq['title'];
-                ?>
-                    <div class="djebel-plugin-faq-item" data-faq-id="<?php echo Djebel_App_HTML::escAttr($faq_id); ?>">
-                        <button class="djebel-plugin-faq-question" type="button" aria-expanded="false">
-                            <span><?php echo Djebel_App_HTML::encodeEntities($faq_title); ?></span>
-                            <span class="djebel-plugin-faq-icon">+</span>
-                        </button>
-                        <div class="djebel-plugin-faq-answer">
-                            <div class="djebel-plugin-faq-answer-content">
-                                <?php
-                                // Already sanitized in generateFaqData, before caching.
-                                $content = empty($faq['content']) ? '' : $faq['content'];
-                                echo $content;
-                                ?>
-                            </div>
-                        </div>
-                    </div>
-                <?php } ?>
-            </div>
-        </div>
-        
         <script>
         (function() {
             'use strict';
@@ -274,18 +288,24 @@ class Djebel_Faq_Plugin
         })();
         </script>
         <?php
+
+        return true;
     }
 
     public function getFaqData($params = [])
     {
-        $collection_id = empty($params['id']) ? 'default' : $params['id'];
+        $collection_id = empty($params['id']) ? '' : $params['id'];
         $collection_id = Dj_App_String_Util::trim($collection_id);
         $this->current_collection_id = Dj_App_String_Util::formatSlug($collection_id);
+
+        // Read it back through the getter so an omitted id lands on the same fallback
+        // every caller gets, instead of each method carrying its own copy of it.
+        $collection_id = $this->getCurrentCollectionId();
 
         // What gets cached is the SORTED list, so the sort field belongs in the key —
         // otherwise changing it keeps serving the previous order until the entry expires.
         $sort_by = $this->getSortBy();
-        $cache_key = $this->plugin_id . '-' . $this->current_collection_id . '-' . $sort_by;
+        $cache_key = $this->plugin_id . '-' . $collection_id . '-' . $sort_by;
         $cache_params = ['plugin' => $this->plugin_id, 'ttl' => 8 * 60 * 60]; // 8 hours
 
         $options_obj = Dj_App_Options::getInstance();
@@ -388,12 +408,13 @@ class Djebel_Faq_Plugin
     /**
      * Get data directory path for a FAQ collection
      * Checks public dir first, falls back to private dir
+     * Without an explicit id it uses the collection being rendered.
      * @param array $params Optional params with 'id' for collection
      * @return string
      */
     public function getDataDirectory($params = [])
     {
-        $collection_id = empty($params['id']) ? 'default' : $params['id'];
+        $collection_id = empty($params['id']) ? $this->getCurrentCollectionId() : $params['id'];
         $collection_id = Dj_App_String_Util::trim($collection_id);
         $formatted_id = Dj_App_String_Util::formatSlug($collection_id);
 
